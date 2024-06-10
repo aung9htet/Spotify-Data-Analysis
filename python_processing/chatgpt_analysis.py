@@ -42,7 +42,7 @@ class GPTAnalysis(object):
             'Classical Piano': {'low': (27.5, 250), 'mid': (250, 2000), 'high': (2000, 4200)},
             'Electric Guitar': {'mid': (82, 1200)},
             'Classical Guitar': {'mid': (82, 880)},
-            'Electronic/Lo-fi': {'full': (20, 15000)},
+            'Electronic/Lo-fi': {'bass': (20, 250), 'mid': (250, 2000), 'high': (2000, 8000)},
             'Acoustic Guitar': {'mid': (82, 880)},
             'Atmospheric Effects': {'full': (20, 20000)},
             'Pads/Synthesizers': {'full': (20, 15000)},
@@ -67,6 +67,7 @@ class GPTAnalysis(object):
 
         # run audio analysis to get user prompt
         self.analyse_song()
+        print(self.user_prompt)
     
     def get_response(self):
         response = openai.chat.completions.create(
@@ -152,5 +153,5 @@ class GPTAnalysis(object):
                 normalized_energy[instrument] = energy
         return normalized_energy
 
-gpt = GPTAnalysis("2EPQXOr3VLvDImQnoHOYO3")
+gpt = GPTAnalysis("0NDUuWBh1ykEGtIBtD9tAm")
 gpt.get_response()
