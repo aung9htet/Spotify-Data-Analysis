@@ -121,6 +121,24 @@ class SpotifyAPI():
         data = self.get_data()
         return data
     
+    def get_track_audio_feature(self, track_id):
+        """
+            The following method uses the track id to get spotify's analysis of audio features.
+        """
+        end_point = f"audio-features/{track_id}"
+        self.update_url(end_point=end_point)
+        data = self.get_data()
+        return data
+    
+    def get_track_audio_analysis(self, track_id):
+        """
+            The following method uses the track id to get spotify's analysis audio.
+        """
+        end_point = f"audio-analysis/{track_id}"
+        self.update_url(end_point=end_point)
+        data = self.get_data()
+        return data
+    
     def get_playcount(self, album_id):
         """
             The following method returns the total playcount for the album and for all the tracks

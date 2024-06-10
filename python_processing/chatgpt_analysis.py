@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from spotify_api_intergration import SpotifyAPI
 from scipy.io import wavfile
-from scipy.signal import butter, lfilter
+from scipy.signal import butter, sosfilt
 import gpt_prompts.song_analysis_prompt as gpt_prompt
 sys.path.append('..')
 import authentication.gpt_api_key as authentication
@@ -23,6 +23,8 @@ class GPTAnalysis(object):
         # spotify api init
         self.spotify_api = SpotifyAPI()
         track_data = self.spotify_api.get_track_data(track_id)
+        self.spotify_audio_features = self.spotify_api.get_track_audio_feature(track_id)
+        # self.spotify_track_lyrics = self.spotify_api.get_track_lyrics(track_id)
         track_preview = track_data['preview_url']
 
         # retrieve song from preview
@@ -31,52 +33,44 @@ class GPTAnalysis(object):
         self.audio_sample_data = (self.sig, self.rate) = librosa.load(path)
         
         # chatgpt init
-        openai.api_key = authentication.gpt_key
-        client = openai.OpenAI(api_key=authentication.gpt_key)
         self.user_prompt = ""
-        audio_file= open(path, "rb")
-        transcription = client.audio.transcriptions.create(
-            model="whisper-1", 
-            file=audio_file
-        )
-        self.transcript_text = transcription.text
-        print(self.transcript_text)
+        self.system_prompt = gpt_prompt.system_prompt
         openai.api_key = authentication.gpt_key
 
         # Frequency ranges for instruments (Hz)
         self.instrument_ranges = {
-            'Classical Piano': (27.5, 4200),
-            'Electric Guitar': (82, 1200),
-            'Classical Guitar': (82, 880),
-            'Electronic/Lo-fi': (20, 15000),
-            'Acoustic Guitar': (82, 880),
-            'Atmospheric Effects': (20, 20000),
-            'Pads/Synthesizers': (20, 15000),
-            'Flute': (261.63, 4000),
-            'Drums/Beats': (50, 15000),
-            'Trumpet/Horn/Saxophone': (146.83, 1000),
-            'Electric Piano/Keyboard': (27.5, 4200),
-            'Percussions': (100, 10000),
-            'Vocals/Vocal Samples': (85, 1200),
-            'Guitar': (82, 880),
-            'Strings': (65, 4000),
-            'Orchestra': (20, 20000),
-            'Asian Strings': (146.83, 1000),
-            'Synthesizer': (20, 15000),
-            'Binaural Waves': (20, 20000),
-            'Felt Piano': (27.5, 4200),
-            'Bass Guitar': (40, 400),
-            'Mandolin': (196, 880),
-            'Samples': (20, 20000),
+            'Classical Piano': {'low': (27.5, 250), 'mid': (250, 2000), 'high': (2000, 4200)},
+            'Electric Guitar': {'mid': (82, 1200)},
+            'Classical Guitar': {'mid': (82, 880)},
+            'Electronic/Lo-fi': {'full': (20, 15000)},
+            'Acoustic Guitar': {'mid': (82, 880)},
+            'Atmospheric Effects': {'full': (20, 20000)},
+            'Pads/Synthesizers': {'full': (20, 15000)},
+            'Flute': {'mid': (261.63, 4000)},
+            'Drums/Beats': {'full': (50, 15000)},
+            'Trumpet/Horn/Saxophone': {'mid': (146.83, 1000)},
+            'Electric Piano/Keyboard': {'low': (27.5, 250), 'mid': (250, 2000), 'high': (2000, 4200)},
+            'Percussions': {'full': (100, 10000)},
+            'Vocals/Vocal Samples': {'mid': (85, 1200)},
+            'Guitar': {'mid': (82, 880)},
+            'Strings': {'full': (65, 4000)},
+            'Orchestra': {'full': (20, 20000)},
+            'Asian Strings': {'mid': (146.83, 1000)},
+            'Synthesizer': {'full': (20, 15000)},
+            'Binaural Waves': {'full': (20, 20000)},
+            'Felt Piano': {'low': (27.5, 250), 'mid': (250, 2000), 'high': (2000, 4200)},
+            'Bass Guitar': {'low': (40, 400)},
+            'Mandolin': {'mid': (196, 880)},
+            'Samples': {'full': (20, 20000)},
         }
         self.energy = {}
 
-        # run
+        # run audio analysis to get user prompt
         self.analyse_song()
-        self.system_prompt = gpt_prompt.system_prompt
-
+    
     def get_response(self):
         response = openai.chat.completions.create(
+            # model="gpt-3.5-turbo",
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": self.system_prompt},
@@ -112,104 +106,51 @@ class GPTAnalysis(object):
         cs = f'Chroma STFT: {chroma_stft}'
         h = f'Harmonic: {harmonic}'
         p = f'Percussive: {percussive}'
-        lyrics = f'Lyrics: {self.transcript_text}'
-
-        # # Plotting the features
-        # plt.figure(figsize=(14, 8))
-
-        # plt.subplot(3, 2, 1)
-        # librosa.display.specshow(chroma_stft, y_axis='chroma', x_axis='time')
-        # plt.title('Chroma STFT')
-        # plt.colorbar()
-
-        # plt.subplot(3, 2, 2)
-        # librosa.display.specshow(librosa.amplitude_to_db(librosa.stft(self.sig), ref=np.max), y_axis='log', x_axis='time')
-        # plt.title('Spectrogram')
-        # plt.colorbar(format='%+2.0f dB')
-
-        # plt.subplot(3, 2, 3)
-        # plt.semilogy(rms.T, label='RMS Energy')
-        # plt.xticks([])
-        # plt.xlim([0, rms.shape[-1]])
-        # plt.title('RMS Energy')
-        # plt.legend()
-
-        # plt.subplot(3, 2, 4)
-        # plt.semilogy(zcr.T, label='Zero Crossing Rate')
-        # plt.xticks([])
-        # plt.xlim([0, zcr.shape[-1]])
-        # plt.title('Zero Crossing Rate')
-        # plt.legend()
-
-        # plt.subplot(3, 2, 5)
-        # plt.semilogy(centroid.T, label='Spectral Centroid')
-        # plt.xticks([])
-        # plt.xlim([0, centroid.shape[-1]])
-        # plt.title('Spectral Centroid')
-        # plt.legend()
-
-        # plt.subplot(3, 2, 6)
-        # plt.semilogy(rolloff.T, label='Spectral Rolloff')
-        # plt.xticks([])
-        # plt.xlim([0, rolloff.shape[-1]])
-        # plt.title('Spectral Rolloff')
-        # plt.legend()
-
-        # plt.tight_layout()
-        # plt.show()
-
-        # # Additional analysis for genre/instrument classification
-        # # Normally this would involve a pre-trained model, but for simplicity we use PCA to visualize
-        # scaler = StandardScaler()
-        # mfcc_scaled = scaler.fit_transform(mfcc.T)
-
-        # pca = PCA(n_components=2)
-        # mfcc_pca = pca.fit_transform(mfcc_scaled)
-
-        # plt.figure(figsize=(8, 6))
-        # plt.scatter(mfcc_pca[:, 0], mfcc_pca[:, 1])
-        # plt.title('PCA of MFCC')
-        # plt.xlabel('Principal Component 1')
-        # plt.ylabel('Principal Component 2')
-        # plt.show()
-        # Process each instrument
         energies = {}
-        for instrument, (lowcut, highcut) in self.instrument_ranges.items():
-            filtered_signal = self.bandpass_filter(self.sig, lowcut, highcut, self.rate)
-            if len(filtered_signal) == 0:
-                energy = 0
-            else:
-                energy = self.calculate_energy(filtered_signal)
-            energies[instrument] = energy
-        self.energy = f"Energies: {str(energies)}"
-        self.user_prompt = tempo + '\n' + mfcc_shape + '\n' + spectrral_centroid + '\n' + spectral_bandwidth + '\n' + spectral_contrast + '\n' + rms + '\n' + zcr + '\n' + spectral_rolloff + '\n' + bf + '\n' + cs + '\n' + h + '\n' + p + '\n' + lyrics + '\n' + self.energy
 
-        # Print energies
-        for instrument, energy in energies.items():
-            print(f'{instrument}: {energy}')
+        energy_dict = self.calculate_instrument_energy(self.sig, self.rate, self.instrument_ranges)
+        energies = self.normalize_energy(energy_dict)
 
+        self.energy = f"Normalised Energies: {str(energies)}"
+        audio_data = tempo + '\n' + mfcc_shape + '\n' + spectrral_centroid + '\n' + spectral_bandwidth + '\n' + spectral_contrast + '\n' + rms + '\n' + zcr + '\n' + spectral_rolloff + '\n' + bf + '\n' + cs + '\n' + h + '\n' + p + '\n' + self.energy
+        self.user_prompt = audio_data + '\n Audio Features:' + str(self.spotify_audio_features)
 
-    # Define bandpass filter
-    def butter_bandpass(self, lowcut, highcut, fs, order=5):
-        nyquist = 0.5 * fs
-        low = lowcut / nyquist
-        high = highcut / nyquist
-        if low <= 0 or high >=1:
-            return [], []
-        b, a = butter(order, [low, high], btype='band')
-        return b, a
+    def bandpass_filter(self, signal, sr, low_freq, high_freq):
+        nyquist = sr / 2
+        if low_freq >= nyquist or high_freq >= nyquist:
+            filtered_signal = []
+        else:
+            sos = butter(2, [low_freq, high_freq], btype='band', fs=sr, output='sos')
+            filtered_signal = sosfilt(sos, signal)
+        return filtered_signal
 
-    def bandpass_filter(self, data, lowcut, highcut, fs, order=5):
-        b, a = self.butter_bandpass(lowcut, highcut, fs, order=order)
-        if len(b) == 0 and len(a) == 0:
-            return []
-        y = lfilter(b, a, data)
-        return y
-
-    # Calculate energy
-    def calculate_energy(self, filtered_signal):
-        energy = np.sum(np.square(filtered_signal))
+    def calculate_energy(self, signal, sr, low_freq, high_freq):
+        filtered_signal = self.bandpass_filter(signal, sr, low_freq, high_freq)
+        if len(filtered_signal) == 0:
+            energy = 0
+        else:
+            energy = np.sum(filtered_signal ** 2)
         return energy
 
-gpt = GPTAnalysis("4MAU5QwI1Gu57gsnL7CUpt")
+    def calculate_instrument_energy(self, signal, sr, instrument_ranges):
+        energy_dict = {}
+        for instrument, ranges in instrument_ranges.items():
+            instrument_energy = []
+            for range_name, (low, high) in ranges.items():
+                energy = self.calculate_energy(signal, sr, low, high)
+                instrument_energy.append(energy)
+            energy_dict[instrument] = instrument_energy
+        return energy_dict
+    
+    def normalize_energy(self, energy_dict):
+        normalized_energy = {}
+        for instrument, energy in energy_dict.items():
+            total_energy = sum(energy)
+            if total_energy > 0:
+                normalized_energy[instrument] = [e / total_energy for e in energy]
+            else:
+                normalized_energy[instrument] = energy
+        return normalized_energy
+
+gpt = GPTAnalysis("2EPQXOr3VLvDImQnoHOYO3")
 gpt.get_response()
