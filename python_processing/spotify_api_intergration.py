@@ -22,7 +22,7 @@ class SpotifyAPI():
 
         # authentication to process
         self.access_token_url = "https://open.spotify.com/get_access_token"
-        self.token_location_ref = "authentication/spotify-authentication.json"
+        self.token_location_ref = "../authentication/spotify-authentication.json"
         self.token_location = os.path.join(self.current_dir, self.token_location_ref)
     
     def update_url(self, end_point="", url=None):
@@ -89,11 +89,38 @@ class SpotifyAPI():
         """
             The following method uses the artist id to get data of the artist.
         """
-        self.end_point= f"artists/{artist_id}"
-        self.update_url(end_point=self.end_point)
+        end_point= f"artists/{artist_id}"
+        self.update_url(end_point=end_point)
         data = self.get_data()
-        print(data)
-
+        return data
+    
+    def get_artist_album(self, artist_id):
+        """
+            The following method uses the artist id to get data of the artist.
+        """
+        end_point= f"artists/{artist_id}/albums"
+        self.update_url(end_point=end_point)
+        data = self.get_data()
+        return data
+    
+    def get_playlist_data(self, playlist_id):
+        """
+            The following method uses the playlist id to get data of the playlist.
+        """
+        end_point= f"playlists/{playlist_id}"
+        self.update_url(end_point=end_point)
+        data = self.get_data()
+        return data
+    
+    def get_track_data(self, track_id):
+        """
+            The following method uses the track id to get data of the playlist.
+        """
+        end_point= f"tracks/{track_id}"
+        self.update_url(end_point=end_point)
+        data = self.get_data()
+        return data
+    
     def get_playcount(self, album_id):
         """
             The following method returns the total playcount for the album and for all the tracks
@@ -115,6 +142,7 @@ class SpotifyAPI():
             })
         }
         data = self.get_data()
+        print(self.get_data())
 
         album_playcount = {}
 
@@ -127,6 +155,3 @@ class SpotifyAPI():
         total_playcount = sum(album_playcount.values())
 
         return album_playcount, total_playcount
-
-test = SpotifyAPI(url="https://api.spotify.com/v1/tracks/11dFghVXANMlKmJXsNCbNl")
-print(test.get_artist_data("0TnOYISbd1XYRBk9myaseg"))
