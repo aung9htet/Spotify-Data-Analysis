@@ -2,3 +2,6 @@ openai
 librosa
 urllib
 matplotlib
+mysql-connector-python
+numpy
+google-cloud-speech
